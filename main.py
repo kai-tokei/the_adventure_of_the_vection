@@ -2,6 +2,10 @@ import pyxel
 import numpy as np
 from dataclasses import dataclass
 
+# 人間の直感に優しい視野角
+fov_deg = 60
+fov_rad = np.radians(fov_deg)
+
 
 def create_grid_horizon_cloud(
     grid_size=30, grid_length=5.0, points_per_edge=10, offset=[0, 0, 0]
@@ -96,8 +100,11 @@ def world_to_screen(points_3d, camera, focal_length, screen_width, screen_height
     Y = points_3d[:, 1] - camera.pos[1]
     Z = points_3d[:, 2] - camera.pos[2]
 
+    # カメラより前方にある点だけを有効にする
+    valid_mask = Z > 0.1
+
     # 0割り算を防ぐために、小さな値（epsilon)を足すか、Z > 0でクリッピング
-    Z_safe = np.where(Z == 0, 1e-5, Z)
+    Z_safe = np.where(valid_mask, Z, 0.1)
 
     # 一括で2D座標を計算する
     x_2d = focal_length * (X / Z_safe) + (screen_width / 2)
@@ -106,14 +113,15 @@ def world_to_screen(points_3d, camera, focal_length, screen_width, screen_height
     # (N, 2) の形状にして返却
     # column_stackは、Fortran連続（列方向）に近く、最適化された並びらしい
     # 一番いい感じでメモリに乗っかる
-    return np.column_stack((x_2d, y_2d))
+    return np.column_stack((x_2d, y_2d)), valid_mask
 
 
 # 画面系の座標展を描画する
-def render_points(points_2d, col=7):
+def render_points(points_2d, mask_list, col=7):
     points_2d_list = points_2d.tolist()
-    for x, y in points_2d_list:
-        pyxel.pset(x, y, col)
+    for (x, y), is_valid in zip(points_2d_list, mask_list):
+        if is_valid:
+            pyxel.pset(x, y, col)
 
 
 @dataclass
@@ -127,12 +135,14 @@ class App:
 
         self.camera = Camera(pos=[0, 0, 0])
 
+        self.focal_length = (pyxel.width / 2) / np.tan(fov_rad / 2.0)
+
         # 立方体
         self.cube_points = create_cube_points_cloud(side_length=3)
 
         # 地平線
         self.floor_points = create_grid_horizon_cloud(
-            grid_size=10, grid_length=2.0, points_per_edge=10, offset=[0, -2, 0]
+            grid_size=20, grid_length=2.0, points_per_edge=10, offset=[0, -2, 0]
         )
 
         pyxel.run(self.update, self.draw)
@@ -143,24 +153,24 @@ class App:
     def draw(self):
         pyxel.cls(0)
 
-        positions_2d = world_to_screen(
+        cube_positions_2d, cube_positions_2d_mask = world_to_screen(
             self.cube_points,
             self.camera,
-            150,
+            self.focal_length,
             pyxel.width,
             pyxel.height,
         )
 
-        floor_points_2d = world_to_screen(
+        floor_points_2d, floor_points_2d_mask = world_to_screen(
             self.floor_points,
             self.camera,
-            150,
+            self.focal_length,
             pyxel.width,
             pyxel.height,
         )
 
-        render_points(floor_points_2d, col=1)
-        render_points(positions_2d)
+        render_points(floor_points_2d, floor_points_2d_mask, col=1)
+        render_points(cube_positions_2d, cube_positions_2d_mask)
 
 
 App()
