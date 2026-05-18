@@ -38,6 +38,16 @@ class App:
             grid_size=20, grid_length=2.0, points_per_edge=10, offset=[0, -2, 0]
         )
 
+        # 廊下（点群）
+        self.hall_points = np.concatenate(
+            [
+                create_cube_points_cloud(
+                    side_length=3, offset=np.array([0, 0, 3 + i * 3])
+                )
+                for i in range(9)
+            ]
+        )
+
         # 学校の廊下の画像
         self.hall_img = pyxel.Image(389, 218)
         self.hall_img.load(0, 0, "imgs/hall.png")
@@ -59,25 +69,34 @@ class App:
     def draw(self):
         pyxel.cls(0)
 
-        # 立方体を描画
-        cube_positions_2d, cube_positions_2d_mask = world_to_screen(
-            self.cube_points,
+        # 立方体を座標計算
+        # cube_positions_2d, cube_positions_2d_mask = world_to_screen(
+        #     self.cube_points,
+        #     self.camera,
+        #     self.focal_length,
+        #     pyxel.width,
+        #     pyxel.height,
+        # )
+
+        # グリッドの床を座標計算
+        #     floor_points_2d, floor_points_2d_mask = world_to_screen(
+        #     self.floor_points,
+        #     self.camera,
+        #     self.focal_length,
+        #     pyxel.width,
+        #     pyxel.height,
+        # )
+
+        # 廊下の点群を座標計算
+        hall_points_2d, hall_points_2d_mask = world_to_screen(
+            self.hall_points,
             self.camera,
             self.focal_length,
             pyxel.width,
             pyxel.height,
         )
 
-        # グリッドの床を描画
-        floor_points_2d, floor_points_2d_mask = world_to_screen(
-            self.floor_points,
-            self.camera,
-            self.focal_length,
-            pyxel.width,
-            pyxel.height,
-        )
-
-        # 画像の大きさを計算
+        # 廊下の画像を座標計算
         hall_img_point_2d, hall_img_point_2d_mask = world_to_screen(
             self.hall_img_point,
             self.camera,
@@ -88,7 +107,8 @@ class App:
 
         if self.experi_mode == ExperiMode.DOTS:
             # それぞれの点群を描画
-            render_points(cube_positions_2d, cube_positions_2d_mask)
+            render_points(hall_points_2d, hall_points_2d_mask)
+            # render_points(cube_positions_2d, cube_positions_2d_mask)
             # render_points(floor_points_2d, floor_points_2d_mask, col=1)
         else:
             # 廊下の画像を描画
@@ -98,7 +118,6 @@ class App:
             hall_img_scale = base_scale * (
                 self.hall_img_world_width / self.hall_img.width
             )
-            print(hall_img_scale)
             if hall_img_point_2d_mask[0]:
                 pyxel.blt(
                     hall_img_point_2d[0, 0] - self.hall_img.width / 2,
