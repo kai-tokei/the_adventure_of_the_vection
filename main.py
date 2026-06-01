@@ -15,6 +15,8 @@ fov_deg = 60
 
 REAL_EYE_DISTANCE = 63.0  # 両眼の感覚（人間の平均は63mm）
 FOCAL_LENGTH_PC_CAMERA = 500.0  # 焦点距離
+LERP_FACTOR = 0.15
+DETECTION_TIME_DISTANCE = 4
 
 # MediaPipeの設定
 BaseOptions = mp.tasks.BaseOptions
@@ -31,10 +33,12 @@ class ExperiMode:
 
 class App:
     def __init__(self):
-        pyxel.init(320, 240, title="The Adventure of the Vection")
+        pyxel.init(320, 240, title="The Adventure of the Vection", fps=30)
+        pyxel.mouse(True)
 
         # カメラ
         self.camera = Camera(pos=[0, 0, 0])
+        self.camera_target_z = 0
 
         # 実験のモード
         self.experi_mode = ExperiMode.DOTS
@@ -81,8 +85,6 @@ class App:
         pyxel.run(self.update, self.draw)
 
     def update(self):
-        # self.camera.pos[2] = pyxel.sin(pyxel.frame_count) * 10 - 8
-
         # スペースキーでモードを切り替え
         if pyxel.btnp(pyxel.KEY_SPACE):
             self.experi_mode = (
@@ -91,7 +93,8 @@ class App:
                 else ExperiMode.DOTS
             )
 
-        if (pyxel.frame_count % 3 == 0) and self.cap.isOpened():
+        if (pyxel.frame_count % DETECTION_TIME_DISTANCE == 0) and self.cap.isOpened():
+            # カメラから画像を取得
             success, frame = self.cap.read()
             if not success:
                 return
@@ -127,13 +130,16 @@ class App:
                         )
                         distance_cm = distance_mm / 10.0
 
-                        print(distance_cm, 15 - distance_cm * 0.6)
+                        # print(distance_cm, 15 - distance_cm * 0.5)
 
                         # カメラの座標を設定
-                        self.camera.pos[2] = 15 - distance_cm * 0.6
+                        self.camera_target_z = 15 - distance_cm * 0.5
 
-                        # デバッグ用
-                        # self.camera.pos[2] = pyxel.sin(pyxel.frame_count) * 10 - 4
+        # カメラを目標座標に向かって線型補完しながら滑らかに移動させる
+        self.camera.pos[2] += (self.camera_target_z - self.camera.pos[2]) * LERP_FACTOR
+
+        # デバッグ用
+        # self.camera.pos[2] = pyxel.sin(pyxel.frame_count) * 10 - 4
 
     def draw(self):
         pyxel.cls(0)
@@ -156,30 +162,30 @@ class App:
         #     pyxel.height,
         # )
 
-        # 廊下の点群を座標計算
-        hall_points_2d, hall_points_2d_mask = world_to_screen(
-            self.hall_points,
-            self.camera,
-            self.focal_length,
-            pyxel.width,
-            pyxel.height,
-        )
-
-        # 廊下の画像を座標計算
-        hall_img_point_2d, hall_img_point_2d_mask = world_to_screen(
-            self.hall_img_point,
-            self.camera,
-            self.focal_length,
-            pyxel.width,
-            pyxel.height,
-        )
-
         if self.experi_mode == ExperiMode.DOTS:
+            # 廊下の点群を座標計算
+            hall_points_2d, hall_points_2d_mask = world_to_screen(
+                self.hall_points,
+                self.camera,
+                self.focal_length,
+                pyxel.width,
+                pyxel.height,
+            )
+
             # それぞれの点群を描画
             render_points(hall_points_2d, hall_points_2d_mask)
             # render_points(cube_positions_2d, cube_positions_2d_mask)
             # render_points(floor_points_2d, floor_points_2d_mask, col=1)
         else:
+            # 廊下の画像を座標計算
+            hall_img_point_2d, hall_img_point_2d_mask = world_to_screen(
+                self.hall_img_point,
+                self.camera,
+                self.focal_length,
+                pyxel.width,
+                pyxel.height,
+            )
+
             # 廊下の画像を描画
             base_scale = self.focal_length / (
                 self.hall_img_point[0, 2] - self.camera.pos[2]
