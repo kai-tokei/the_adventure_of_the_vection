@@ -24,6 +24,10 @@ FaceDetector = mp.tasks.vision.FaceDetector
 FaceDetectorOptions = mp.tasks.vision.FaceDetectorOptions
 VisionRunningMode = mp.tasks.vision.RunningMode
 
+# 再生時間（25秒 -> fps）
+PLAY_TIME = 25 * 30
+SPEED = 36 / PLAY_TIME
+
 
 # 実験のモード
 class ExperiMode:
@@ -34,14 +38,14 @@ class ExperiMode:
 class App:
     def __init__(self):
         pyxel.init(320, 240, title="The Adventure of the Vection", fps=30)
-        pyxel.mouse(True)
+        # pyxel.mouse(True)
 
         # カメラ
         self.camera = Camera(pos=[0, 0, 0])
         self.camera_target_z = 0
 
         # 実験のモード
-        self.experi_mode = ExperiMode.DOTS
+        self.experi_mode = ExperiMode.IMG
 
         # 視野角の計算
         self.focal_length = (pyxel.width / 2) / np.tan(np.deg2rad(fov_deg) / 2.0)
@@ -53,6 +57,8 @@ class App:
         self.floor_points = create_grid_horizon_cloud(
             grid_size=20, grid_length=2.0, points_per_edge=10, offset=[0, -2, 0]
         )
+
+        self.play_time_counter = 0
 
         # 廊下（点群）
         self.hall_points = np.concatenate(
@@ -67,7 +73,7 @@ class App:
         # 学校の廊下の画像
         self.hall_img = pyxel.Image(320, 180)
         self.hall_img.load(0, 0, "imgs/hall.png")
-        self.hall_img_point = np.array([[-1.5, 2, 35]])
+        self.hall_img_point = np.array([[-1.5, 2, 37]])
         self.hall_img_world_width = 64
 
         # カメラと顔検出機の初期化
@@ -93,6 +99,7 @@ class App:
                 else ExperiMode.DOTS
             )
 
+        """
         if (pyxel.frame_count % DETECTION_TIME_DISTANCE == 0) and self.cap.isOpened():
             # カメラから画像を取得
             success, frame = self.cap.read()
@@ -137,6 +144,23 @@ class App:
 
         # カメラを目標座標に向かって線型補完しながら滑らかに移動させる
         self.camera.pos[2] += (self.camera_target_z - self.camera.pos[2]) * LERP_FACTOR
+        """
+
+        if self.play_time_counter < PLAY_TIME:
+            pyxel.screenshot(
+                "screen_shots/" + str(self.play_time_counter) + ".png", scale=5
+            )
+            self.play_time_counter += 1
+            self.camera.pos[2] += SPEED
+
+        """
+        if pyxel.btnp(pyxel.KEY_UP):
+            self.camera.pos[2] += 1
+            print(self.camera.pos)
+        if pyxel.btnp(pyxel.KEY_DOWN):
+            self.camera.pos[2] -= 1
+            print(self.camera.pos)
+        """
 
         # デバッグ用
         # self.camera.pos[2] = pyxel.sin(pyxel.frame_count) * 10 - 4
