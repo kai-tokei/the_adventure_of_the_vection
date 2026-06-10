@@ -65,9 +65,9 @@ class App:
         )
 
         # 学校の廊下の画像
-        self.hall_img = pyxel.Image(389, 218)
+        self.hall_img = pyxel.Image(320, 180)
         self.hall_img.load(0, 0, "imgs/hall.png")
-        self.hall_img_point = np.array([[0, -1, 27]])
+        self.hall_img_point = np.array([[-1.5, 2, 35]])
         self.hall_img_world_width = 64
 
         # カメラと顔検出機の初期化
